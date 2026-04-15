@@ -55,6 +55,7 @@ DEFAULT_ENABLED = {
     "Git Branches",
     "SVN Add",
     "SVN Checkout",
+    "Git Clone",
     "Properties",
     "Settings",
 }

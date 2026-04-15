@@ -104,6 +104,10 @@ def main():
     paths = [os.path.abspath(p) for p in args.paths if os.path.exists(p)]
     base_dir = get_common_directory(paths)
 
+    # Clone always operates on the current/common directory
+    if args.module == "clone":
+        paths = [base_dir]
+
     ensure_checker_service()
 
     if args.module in MODULE_OVERRIDES:

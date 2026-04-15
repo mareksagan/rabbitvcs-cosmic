@@ -16,36 +16,43 @@ except ImportError:
     Gtk = None
 
 from config import ALL_ACTIONS, load, save
+import install
 
 
 def run_zenity_settings():
     enabled = load()
-    # Build checklist: one TRUE/FALSE entry per action
-    checklist_args = []
-    for name, _, _, _ in ALL_ACTIONS:
-        checklist_args += [name, str(name in enabled)]
-
+    # Build checklist: checkbox state then visible column value per action
     cmd = [
         "zenity",
+        "--list",
         "--checklist",
         "--title=RabbitVCS COSMIC Settings",
         "--text=Select actions to show in the COSMIC Files context menu:",
+        "--column=",
         "--column=Action",
-        "--column=Enabled",
         "--separator=,",
         "--width=400",
         "--height=600",
-    ] + checklist_args
+    ]
+    for name, _, _, _ in ALL_ACTIONS:
+        cmd += [str(name in enabled), name]
 
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
-        print("Cancelled.")
+        if result.stderr.strip():
+            print(f"Error: {result.stderr.strip()}")
+        else:
+            print("Cancelled.")
         return
 
-    selected = {s.strip() for s in result.stdout.strip().split(",") if s.strip()}
+    selected_raw = result.stdout.strip()
+    selected = {s.strip() for s in selected_raw.split(",") if s.strip()}
     save(selected)
     print(f"Saved {len(selected)} enabled actions.")
-    print("Run 'python3 install.py' to apply the changes to COSMIC Files.")
+    try:
+        install.install(install.find_wrapper())
+    except Exception as e:
+        print(f"Warning: failed to apply context actions: {e}", file=sys.stderr)
 
 
 def run_gtk_settings():
@@ -100,7 +107,10 @@ def run_gtk_settings():
         selected = {name for name, cb in checkboxes.items() if cb.get_active()}
         save(selected)
         print(f"Saved {len(selected)} enabled actions.")
-        print("Run 'python3 install.py' to apply the changes to COSMIC Files.")
+        try:
+            install.install(install.find_wrapper())
+        except Exception as e:
+            print(f"Warning: failed to apply context actions: {e}", file=sys.stderr)
         Gtk.main_quit()
 
     def on_cancel(_):
