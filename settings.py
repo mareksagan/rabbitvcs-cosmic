@@ -39,10 +39,7 @@ def run_zenity_settings():
 
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
-        if result.stderr.strip():
-            print(f"Error: {result.stderr.strip()}")
-        else:
-            print("Cancelled.")
+        print("Cancelled.")
         return
 
     selected_raw = result.stdout.strip()
