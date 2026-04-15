@@ -34,7 +34,7 @@ def run_zenity_settings():
         "--width=400",
         "--height=600",
     ]
-    for name, _, _, _ in ALL_ACTIONS:
+    for name, _, _, _, _ in ALL_ACTIONS:
         cmd += [str(name in enabled), name]
 
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -80,7 +80,7 @@ def run_gtk_settings():
     scrolled.add(listbox)
 
     checkboxes = {}
-    for name, _, _, _ in ALL_ACTIONS:
+    for name, _, _, _, _ in ALL_ACTIONS:
         row = Gtk.ListBoxRow()
         hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         hbox.set_margin_start(12)

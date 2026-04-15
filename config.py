@@ -7,40 +7,40 @@ import os
 CONFIG_DIR = os.path.expanduser("~/.config/rabbitvcs-cosmic")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "actions.json")
 
-# Each tuple: (display_name, module_name, selection_type, category)
+# Each tuple: (display_name, module_name, selection_type, category, use_directory)
 ALL_ACTIONS = [
     # Universal / common
-    ("Commit", "commit", "Any", "common"),
-    ("Update / Pull", "update", "Any", "common"),
-    ("Revert", "revert", "Any", "common"),
-    ("Diff", "diff", "Any", "common"),
-    ("Show Changes", "show_changes", "Any", "common"),
-    ("Compare with Base", "compare_tool", "Any", "common"),
-    ("Log", "log", "Any", "common"),
+    ("Commit", "commit", "Any", "common", True),
+    ("Update / Pull", "update", "Any", "common", True),
+    ("Revert", "revert", "Any", "common", True),
+    ("Diff", "diff", "Any", "common", False),
+    ("Show Changes", "show_changes", "Any", "common", False),
+    ("Compare with Base", "compare_tool", "Any", "common", False),
+    ("Log", "log", "Any", "common", True),
     # SVN specific
-    ("SVN Add", "add", "Any", "svn"),
-    ("SVN Delete", "delete", "Any", "svn"),
-    ("SVN Rename", "rename", "Any", "svn"),
-    ("SVN Checkout", "checkout", "Any", "svn"),
-    ("SVN Branch/Tag", "branch", "Any", "svn"),
-    ("SVN Switch", "switch", "Any", "svn"),
-    ("SVN Merge", "merge", "Any", "svn"),
-    ("SVN Mark Resolved", "markresolved", "Any", "svn"),
-    ("SVN Cleanup", "cleanup", "Any", "svn"),
+    ("SVN Add", "add", "Any", "svn", True),
+    ("SVN Delete", "delete", "Any", "svn", False),
+    ("SVN Rename", "rename", "Any", "svn", False),
+    ("SVN Checkout", "checkout", "Any", "svn", True),
+    ("SVN Branch/Tag", "branch", "Any", "svn", True),
+    ("SVN Switch", "switch", "Any", "svn", True),
+    ("SVN Merge", "merge", "Any", "svn", True),
+    ("SVN Mark Resolved", "markresolved", "Any", "svn", False),
+    ("SVN Cleanup", "cleanup", "Any", "svn", True),
     # Git specific
-    ("Git Stage", "stage", "Any", "git"),
-    ("Git Unstage", "unstage", "Any", "git"),
-    ("Git Push", "push", "Any", "git"),
-    ("Git Branches", "branches", "Any", "git"),
-    ("Git Tags", "tags", "Any", "git"),
-    ("Git Remotes", "remotes", "Any", "git"),
-    ("Git Clone", "clone", "Any", "git"),
-    ("Git Reset", "reset", "Any", "git"),
-    ("Git Clean", "clean", "Any", "git"),
+    ("Git Stage", "stage", "Any", "git", True),
+    ("Git Unstage", "unstage", "Any", "git", True),
+    ("Git Push", "push", "Any", "git", True),
+    ("Git Branches", "branches", "Any", "git", True),
+    ("Git Tags", "tags", "Any", "git", True),
+    ("Git Remotes", "remotes", "Any", "git", True),
+    ("Git Clone", "clone", "Any", "git", True),
+    ("Git Reset", "reset", "Any", "git", True),
+    ("Git Clean", "clean", "Any", "git", True),
     # Utilities
-    ("Properties", "property_editor", "Any", "utils"),
-    ("Settings", "settings", "Any", "utils"),
-    ("About", "about", "Any", "utils"),
+    ("Properties", "property_editor", "Any", "utils", False),
+    ("Settings", "settings", "Any", "utils", True),
+    ("About", "about", "Any", "utils", True),
 ]
 
 # Sensible default set
@@ -84,10 +84,10 @@ def save(enabled_names):
 
 
 def get_enabled_actions():
-    """Return list of (display_name, module_name, selection_type) for enabled actions."""
+    """Return list of (display_name, module_name, selection_type, use_directory) for enabled actions."""
     enabled = load()
     return [
-        (name, module, selection)
-        for name, module, selection, _ in ALL_ACTIONS
+        (name, module, selection, use_directory)
+        for name, module, selection, _, use_directory in ALL_ACTIONS
         if name in enabled
     ]

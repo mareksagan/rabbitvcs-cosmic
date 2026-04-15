@@ -38,13 +38,14 @@ def install(wrapper_path):
         print("Warning: no actions are enabled. Run 'python3 settings.py' to select some.")
 
     lines = ['[']
-    for name, module, selection in actions:
+    for name, module, selection, use_directory in actions:
+        dir_flag = " --directory" if use_directory else ""
         entry = textwrap.dedent(f"""\
     (
         name: \"{name}\",
         confirm: false,
         selection: {selection},
-        steps: [\"{wrapper_path} {module} %F\"],
+        steps: [\"{wrapper_path}{dir_flag} {module} %F\"],
     ),""")
         lines.append(entry)
     lines.append(']')

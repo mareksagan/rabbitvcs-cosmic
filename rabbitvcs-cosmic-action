@@ -87,6 +87,22 @@ def get_common_directory(paths):
     return os.path.commonprefix([p + os.sep for p in paths]).rstrip(os.sep) or "."
 
 
+def find_vcs_root(start_path):
+    """Walk up from start_path looking for a .git or .svn directory."""
+    path = os.path.abspath(start_path)
+    # If start_path is a file, start from its parent directory
+    if os.path.isfile(path):
+        path = os.path.dirname(path)
+    while True:
+        if os.path.isdir(os.path.join(path, ".git")) or os.path.isdir(os.path.join(path, ".svn")):
+            return path
+        parent = os.path.dirname(path)
+        if parent == path:
+            break
+        path = parent
+    return start_path
+
+
 MODULE_OVERRIDES = {
     "compare_tool": compare_tool,
     "show_changes": show_changes,
@@ -97,6 +113,7 @@ MODULE_OVERRIDES = {
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--directory", action="store_true", help="Operate on the common directory instead of selected files")
     parser.add_argument("module", help="RabbitVCS UI module to launch")
     parser.add_argument("paths", nargs="*", help="Paths to operate on")
     args = parser.parse_args()
@@ -105,8 +122,8 @@ def main():
     base_dir = get_common_directory(paths)
 
     # Clone always operates on the current/common directory
-    if args.module == "clone":
-        paths = [base_dir]
+    if args.module == "clone" or args.directory:
+        paths = [find_vcs_root(base_dir)]
 
     ensure_checker_service()
 
