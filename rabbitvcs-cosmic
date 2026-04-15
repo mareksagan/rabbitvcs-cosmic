@@ -1,0 +1,319 @@
+#!/usr/bin/env python3
+#
+# RabbitVCS integration for COSMIC Files
+#
+# This script provides a context-menu wrapper for RabbitVCS in the COSMIC
+# file manager. It is called by a COSMIC Files ContextActionPreset and
+# displays a selectable action list using zenity (or a GTK fallback).
+#
+# NOTE: COSMIC Files does not yet support full file-manager extensions
+# (dynamic menus, emblems, or custom columns). This integration provides
+# the closest possible experience using the ContextActionPreset API.
+#
+
+import argparse
+import os
+import shutil
+import subprocess
+import sys
+
+# RabbitVCS imports
+sys.path.insert(0, "/usr/lib/python3.14/site-packages")
+try:
+    from rabbitvcs.util.helper import launch_ui_window
+    from rabbitvcs.vcs import create_vcs_instance, VCS_SVN, VCS_GIT
+except ImportError as e:
+    print(f"rabbitvcs-cosmic requires rabbitvcs: {e}", file=sys.stderr)
+    sys.exit(1)
+
+
+def get_common_directory(paths):
+    """Return the deepest common directory for a list of paths."""
+    if not paths:
+        return os.getcwd()
+    if len(paths) == 1:
+        path = paths[0]
+        if os.path.isdir(path):
+            return path
+        return os.path.dirname(path) or "."
+    return os.path.commonprefix([p + os.sep for p in paths]).rstrip(os.sep) or "."
+
+
+def run_zenity(paths, base_dir, vcs_client):
+    """Use zenity --list to let the user pick a RabbitVCS action."""
+    try:
+        guess = vcs_client.guess(paths[0])
+        vcs = guess.get("vcs", 0)
+    except Exception:
+        vcs = 0
+
+    has_svn = vcs == VCS_SVN
+    has_git = vcs == VCS_GIT
+
+    if not has_svn and not has_git:
+        subprocess.run(
+            ["zenity", "--info", "--title=RabbitVCS", "--text=No version control detected."],
+            check=False,
+        )
+        return
+
+    # Build flat list of (display_label, callable)
+    actions = [
+        ("Commit", lambda: launch_ui_window("commit", paths)),
+        ("Update / Pull", lambda: launch_ui_window("update", paths)),
+        ("Revert", lambda: launch_ui_window("revert", paths)),
+        ("Diff", lambda: launch_ui_window("diff", paths)),
+        ("Show Changes", show_changes(paths)),
+        ("Compare with Base", compare_tool(paths)),
+        ("Log", lambda: launch_ui_window("log", paths)),
+    ]
+
+    if has_svn:
+        actions += [
+            ("Add", lambda: launch_ui_window("add", paths)),
+            ("Delete", lambda: launch_ui_window("delete", paths)),
+            ("Rename", lambda: launch_ui_window("rename", paths)),
+            ("Checkout", lambda: launch_ui_window("checkout", paths)),
+            ("Branch/Tag", lambda: launch_ui_window("branch", paths)),
+            ("Switch", lambda: launch_ui_window("switch", paths)),
+            ("Merge", lambda: launch_ui_window("merge", paths)),
+            ("Mark Resolved", lambda: launch_ui_window("markresolved", paths)),
+            ("Cleanup", lambda: launch_ui_window("cleanup", paths)),
+        ]
+
+    if has_git:
+        actions += [
+            ("Stage", lambda: launch_ui_window("stage", paths)),
+            ("Unstage", lambda: launch_ui_window("unstage", paths)),
+            ("Push", lambda: launch_ui_window("push", paths)),
+            ("Branches", lambda: launch_ui_window("branches", paths)),
+            ("Tags", lambda: launch_ui_window("tags", paths)),
+            ("Remotes", lambda: launch_ui_window("remotes", paths)),
+            ("Clone", lambda: launch_ui_window("clone", paths)),
+            ("Reset", lambda: launch_ui_window("reset", paths)),
+            ("Clean", lambda: launch_ui_window("clean", paths)),
+        ]
+
+    actions += [
+        ("Properties", lambda: launch_ui_window("property_editor", paths)),
+        ("Settings", settings(paths, base_dir)),
+        ("About", lambda: launch_ui_window("about")),
+    ]
+
+    labels = [a[0] for a in actions]
+    cmd = [
+        "zenity",
+        "--list",
+        "--title=RabbitVCS",
+        "--text=Select an action:",
+        "--column=Action",
+        "--hide-header",
+        "--width=280",
+        "--height=480",
+    ] + labels
+
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        # User cancelled or zenity error
+        return
+
+    selection = result.stdout.strip()
+    for label, func in actions:
+        if label == selection:
+            func()
+            break
+
+
+def compare_tool(paths):
+    def _run():
+        from rabbitvcs.util import helper
+        pathrev1 = helper.create_path_revision_string(paths[0], "base")
+        pathrev2 = helper.create_path_revision_string(paths[0], "working")
+        launch_ui_window("diff", ["-s", pathrev1, pathrev2])
+    return _run
+
+
+def show_changes(paths):
+    def _run():
+        from rabbitvcs.util import helper
+        pathrev1 = helper.create_path_revision_string(paths[0])
+        pathrev2 = pathrev1
+        if len(paths) == 2:
+            pathrev2 = helper.create_path_revision_string(paths[1])
+        launch_ui_window("changes", [pathrev1, pathrev2])
+    return _run
+
+
+def settings(paths, base_dir):
+    def _run():
+        bd = base_dir
+        if len(paths) == 1 and os.path.isdir(paths[0]):
+            bd = paths[0]
+        launch_ui_window("settings", [bd])
+    return _run
+
+
+# ---------------------------------------------------------------------------
+# GTK fallback (used when zenity is unavailable)
+# ---------------------------------------------------------------------------
+def run_gtk(paths, base_dir, vcs_client):
+    import gi
+    gi.require_version("Gtk", "3.0")
+    gi.require_version("Gdk", "3.0")
+    from gi.repository import Gtk, Gdk
+
+    class RabbitVCSMenu(Gtk.Window):
+        def __init__(self, paths, base_dir, vcs_client):
+            super().__init__(type=Gtk.WindowType.TOPLEVEL)
+            self.paths = paths
+            self.base_dir = base_dir
+            self.vcs_client = vcs_client
+
+            self.set_decorated(False)
+            self.set_skip_taskbar_hint(True)
+            self.set_skip_pager_hint(True)
+            self.set_default_size(1, 1)
+            self.set_position(Gtk.WindowPosition.MOUSE)
+            self.connect("delete-event", lambda *_: self.quit())
+
+            self.menu = Gtk.Menu()
+            self.build_menu()
+            self.menu.connect("deactivate", self.on_deactivate)
+
+        def popup(self):
+            self.show_all()
+            self.realize()
+            self.menu.attach_to_widget(self, None)
+            event = Gtk.get_current_event()
+            if event:
+                self.menu.popup_at_pointer(event)
+            else:
+                self.menu.popup_at_widget(
+                    self,
+                    Gdk.Gravity.NORTH_WEST,
+                    Gdk.Gravity.NORTH_WEST,
+                    None,
+                )
+            self.menu.grab_focus()
+
+        def on_deactivate(self, menu):
+            self.quit()
+
+        def quit(self):
+            self.destroy()
+            Gtk.main_quit()
+            return False
+
+        def build_menu(self):
+            try:
+                guess = self.vcs_client.guess(self.paths[0])
+                vcs = guess.get("vcs", 0)
+            except Exception:
+                vcs = 0
+
+            has_svn = vcs == VCS_SVN
+            has_git = vcs == VCS_GIT
+
+            if not has_svn and not has_git:
+                item = Gtk.MenuItem(label="No version control detected")
+                item.set_sensitive(False)
+                self.menu.append(item)
+                self.menu.show_all()
+                return
+
+            self.add_item("Commit", lambda: launch_ui_window("commit", self.paths))
+            self.add_item("Update / Pull", lambda: launch_ui_window("update", self.paths))
+            self.add_item("Revert", lambda: launch_ui_window("revert", self.paths))
+            self.menu.append(Gtk.SeparatorMenuItem())
+
+            diff_menu = Gtk.Menu()
+            self.add_item_to_menu(diff_menu, "Diff", lambda: launch_ui_window("diff", self.paths))
+            self.add_item_to_menu(diff_menu, "Show Changes", show_changes(self.paths))
+            self.add_item_to_menu(diff_menu, "Compare with Base", compare_tool(self.paths))
+            diff_item = Gtk.MenuItem(label="Diff")
+            diff_item.set_submenu(diff_menu)
+            self.menu.append(diff_item)
+
+            self.add_item("Log", lambda: launch_ui_window("log", self.paths))
+            self.menu.append(Gtk.SeparatorMenuItem())
+
+            if has_svn:
+                self.add_item("Add", lambda: launch_ui_window("add", self.paths))
+                self.add_item("Delete", lambda: launch_ui_window("delete", self.paths))
+                self.add_item("Rename", lambda: launch_ui_window("rename", self.paths))
+                self.add_item("Checkout", lambda: launch_ui_window("checkout", self.paths))
+                self.menu.append(Gtk.SeparatorMenuItem())
+                self.add_item("Branch/Tag", lambda: launch_ui_window("branch", self.paths))
+                self.add_item("Switch", lambda: launch_ui_window("switch", self.paths))
+                self.add_item("Merge", lambda: launch_ui_window("merge", self.paths))
+                self.add_item("Mark Resolved", lambda: launch_ui_window("markresolved", self.paths))
+                self.add_item("Cleanup", lambda: launch_ui_window("cleanup", self.paths))
+
+            if has_git:
+                self.add_item("Stage", lambda: launch_ui_window("stage", self.paths))
+                self.add_item("Unstage", lambda: launch_ui_window("unstage", self.paths))
+                self.add_item("Push", lambda: launch_ui_window("push", self.paths))
+                self.menu.append(Gtk.SeparatorMenuItem())
+                self.add_item("Branches", lambda: launch_ui_window("branches", self.paths))
+                self.add_item("Tags", lambda: launch_ui_window("tags", self.paths))
+                self.add_item("Remotes", lambda: launch_ui_window("remotes", self.paths))
+                self.add_item("Clone", lambda: launch_ui_window("clone", self.paths))
+                self.add_item("Reset", lambda: launch_ui_window("reset", self.paths))
+                self.add_item("Clean", lambda: launch_ui_window("clean", self.paths))
+
+            self.menu.append(Gtk.SeparatorMenuItem())
+            self.add_item("Properties", lambda: launch_ui_window("property_editor", self.paths))
+            self.add_item("Settings", settings(self.paths, self.base_dir))
+            self.add_item("About", lambda: launch_ui_window("about"))
+            self.menu.show_all()
+
+        def add_item(self, label, action):
+            item = Gtk.MenuItem(label=label)
+            item.connect("activate", lambda *_: self.run(action))
+            self.menu.append(item)
+
+        def add_item_to_menu(self, menu, label, action):
+            item = Gtk.MenuItem(label=label)
+            item.connect("activate", lambda *_: self.run(action))
+            menu.append(item)
+            item.show()
+
+        def run(self, action):
+            action()
+            self.quit()
+
+    win = RabbitVCSMenu(paths, base_dir, vcs_client)
+    win.popup()
+    Gtk.main()
+
+
+# ---------------------------------------------------------------------------
+# Main entry point
+# ---------------------------------------------------------------------------
+def main():
+    parser = argparse.ArgumentParser(
+        description="RabbitVCS context menu for COSMIC Files"
+    )
+    parser.add_argument(
+        "paths",
+        nargs="+",
+        help="One or more file or folder paths to operate on",
+    )
+    args = parser.parse_args()
+
+    paths = [os.path.abspath(p) for p in args.paths if os.path.exists(p)]
+    if not paths:
+        print("rabbitvcs-cosmic: no valid paths provided", file=sys.stderr)
+        sys.exit(1)
+
+    base_dir = get_common_directory(paths)
+    vcs_client = create_vcs_instance()
+
+    if shutil.which("zenity"):
+        run_zenity(paths, base_dir, vcs_client)
+    else:
+        run_gtk(paths, base_dir, vcs_client)
+
+
+if __name__ == "__main__":
+    main()

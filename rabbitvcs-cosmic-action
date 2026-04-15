@@ -1,0 +1,116 @@
+#!/usr/bin/env python3
+"""
+Thin wrapper to launch a specific RabbitVCS UI window.
+Called by individual COSMIC Files ContextActionPreset entries.
+"""
+
+import argparse
+import os
+import subprocess
+import sys
+
+sys.path.insert(0, "/usr/lib/python3.14/site-packages")
+from rabbitvcs.util.helper import launch_ui_window
+from rabbitvcs.util import helper
+import rabbitvcs.services.checkerservice
+import rabbitvcs.vcs
+
+
+def ensure_checker_service():
+    """Start the RabbitVCS status checker D-Bus service if it isn't running."""
+    try:
+        rabbitvcs.services.checkerservice.start()
+    except Exception:
+        pass
+
+
+def compare_tool(paths):
+    pathrev1 = helper.create_path_revision_string(paths[0], "base")
+    pathrev2 = helper.create_path_revision_string(paths[0], "working")
+    launch_ui_window("diff", ["-s", pathrev1, pathrev2])
+
+
+def show_changes(paths):
+    pathrev1 = helper.create_path_revision_string(paths[0])
+    pathrev2 = pathrev1
+    if len(paths) == 2:
+        pathrev2 = helper.create_path_revision_string(paths[1])
+    launch_ui_window("changes", [pathrev1, pathrev2])
+
+
+def do_settings(paths):
+    bd = get_common_directory(paths)
+    if len(paths) == 1 and os.path.isdir(paths[0]):
+        bd = paths[0]
+    launch_ui_window("settings", [bd])
+
+
+def do_properties(paths):
+    """
+    property_editor is SVN-only. For Git repos we show an info message.
+    """
+    if not paths:
+        return
+    vcs_client = rabbitvcs.vcs.VCS()
+    try:
+        guess = vcs_client.guess(paths[0])
+        vcs = guess.get("vcs", 0)
+    except Exception:
+        vcs = 0
+
+    if vcs == rabbitvcs.vcs.VCS_SVN:
+        launch_ui_window("property_editor", [paths[0]])
+    elif vcs == rabbitvcs.vcs.VCS_GIT:
+        _info_box("Git does not support SVN-style properties.")
+    else:
+        _info_box("File is not under version control.")
+
+
+def _info_box(message):
+    try:
+        subprocess.run(
+            ["zenity", "--info", "--title=RabbitVCS", f"--text={message}"],
+            check=False,
+        )
+    except Exception:
+        pass
+
+
+def get_common_directory(paths):
+    if not paths:
+        return os.getcwd()
+    if len(paths) == 1:
+        path = paths[0]
+        if os.path.isdir(path):
+            return path
+        return os.path.dirname(path) or "."
+    return os.path.commonprefix([p + os.sep for p in paths]).rstrip(os.sep) or "."
+
+
+MODULE_OVERRIDES = {
+    "compare_tool": compare_tool,
+    "show_changes": show_changes,
+    "settings": do_settings,
+    "property_editor": do_properties,
+}
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("module", help="RabbitVCS UI module to launch")
+    parser.add_argument("paths", nargs="*", help="Paths to operate on")
+    args = parser.parse_args()
+
+    paths = [os.path.abspath(p) for p in args.paths if os.path.exists(p)]
+    base_dir = get_common_directory(paths)
+
+    ensure_checker_service()
+
+    if args.module in MODULE_OVERRIDES:
+        MODULE_OVERRIDES[args.module](paths)
+    else:
+        launch_ui_window(args.module, paths)
+
+
+if __name__ == "__main__":
+    main()
