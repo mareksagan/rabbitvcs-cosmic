@@ -1,0 +1,1 @@
+/home/kg/rabbitvcs-cosmic/uninstall.py
