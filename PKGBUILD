@@ -1,6 +1,6 @@
 # Maintainer: Your Name <your.email@example.com>
 pkgname=rabbitvcs-cosmic
-pkgver=0.1.0
+pkgver=0.1.0.stash
 pkgrel=1
 pkgdesc="RabbitVCS integration for COSMIC Files"
 arch=('any')

@@ -45,6 +45,7 @@ ALL_ACTIONS = [
     ("Git Clone", "clone", "Any", "git", True),
     ("Git Reset", "reset", "Any", "git", True),
     ("Git Clean", "clean", "Any", "git", True),
+    ("Git Stash", "stash", "Any", "git", True),
     # Utilities
     ("Properties", "property_editor", "Any", "utils", False),
     ("Settings", "settings", "Any", "utils", True),
@@ -64,6 +65,7 @@ DEFAULT_ENABLED = {
     "SVN Add",
     "SVN Checkout",
     "Git Clone",
+    "Git Stash",
     "Properties",
     "Settings",
 }

@@ -92,6 +92,7 @@ def run_zenity(paths, base_dir, vcs_client):
             ("Clone", lambda: launch_ui_window("clone", paths)),
             ("Reset", lambda: launch_ui_window("reset", paths)),
             ("Clean", lambda: launch_ui_window("clean", paths)),
+            ("Stash", lambda: launch_ui_window("stash", paths)),
         ]
 
     actions += [
@@ -260,6 +261,7 @@ def run_gtk(paths, base_dir, vcs_client):
                 self.add_item("Clone", lambda: launch_ui_window("clone", self.paths))
                 self.add_item("Reset", lambda: launch_ui_window("reset", self.paths))
                 self.add_item("Clean", lambda: launch_ui_window("clean", self.paths))
+                self.add_item("Stash", lambda: launch_ui_window("stash", self.paths))
 
             self.menu.append(Gtk.SeparatorMenuItem())
             self.add_item("Properties", lambda: launch_ui_window("property_editor", self.paths))
