@@ -1,0 +1,8 @@
+post_install() {
+    echo "Installing RabbitVCS COSMIC context actions..."
+    /usr/bin/rabbitvcs-cosmic-install
+}
+
+post_upgrade() {
+    post_install
+}

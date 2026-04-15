@@ -52,13 +52,19 @@ Run the settings dialog to pick exactly which actions you want:
 python3 settings.py
 ```
 
-After changing your selection, re-run `install.py` to update COSMIC Files:
+The configuration is stored in `~/.config/rabbitvcs-cosmic/actions.json`.
+
+## Building the Arch package
+
+A `PKGBUILD` is included for Arch Linux and Arch-based distributions. To build and install the package:
 
 ```bash
-python3 install.py
+cd rabbitvcs-cosmic
+makepkg -f
+sudo pacman -U rabbitvcs-cosmic-0.1.0-1-any.pkg.tar.zst
 ```
 
-The configuration is stored in `~/.config/rabbitvcs-cosmic/actions.json`.
+After installation, run `rabbitvcs-cosmic-install` once to register the context actions with COSMIC Files. Changes made in `rabbitvcs-cosmic-settings` are applied automatically.
 
 ## Uninstallation
 
@@ -76,11 +82,11 @@ python3 install.py --wrapper ./rabbitvcs-cosmic
 
 `rabbitvcs-cosmic` uses `zenity --list` (or a GTK3 fallback) to show the actions in a small dialog.
 
-## System-wide install
+## System-wide install (manual)
 
 ```bash
 make install PREFIX=/usr/local
-python3 install.py --wrapper /usr/local/bin/rabbitvcs-cosmic-action
+rabbitvcs-cosmic-install --wrapper /usr/local/bin/rabbitvcs-cosmic-action
 ```
 
 ## License

@@ -6,6 +6,7 @@ pkgdesc="RabbitVCS integration for COSMIC Files"
 arch=('any')
 url="https://github.com/yourusername/rabbitvcs-cosmic"
 license=('GPL')
+install='rabbitvcs-cosmic.install'
 depends=('rabbitvcs' 'python-gobject' 'gtk3' 'zenity')
 optdepends=('cosmic-files: the file manager this integrates with')
 source=(
@@ -17,8 +18,9 @@ source=(
     "uninstall.py"
     "README.md"
     "Makefile"
+    "rabbitvcs-cosmic.install"
 )
-md5sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
+md5sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
 
 package() {
     cd "${srcdir}"
