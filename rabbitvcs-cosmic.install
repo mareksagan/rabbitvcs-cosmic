@@ -6,3 +6,8 @@ post_install() {
 post_upgrade() {
     post_install
 }
+
+pre_remove() {
+    echo "Uninstalling RabbitVCS COSMIC context actions..."
+    /usr/bin/rabbitvcs-cosmic-uninstall
+}
